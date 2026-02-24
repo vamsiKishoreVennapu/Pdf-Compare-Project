@@ -58,7 +58,7 @@ const App = () => {
                 </Suspense>
               } /> */}
           <Route path="/pdf-compare" element={<PdfCompare />} />
-          <Route path="/" element={<Navigate to="/pdf-compare" replace />} />
+          {/* <Route path="/" element={<Navigate to="/pdf-compare" replace />} /> */}
           <Route path="*" element={<Navigate to="/pdf-compare" replace />} />
 
           {/* Protected routes */}

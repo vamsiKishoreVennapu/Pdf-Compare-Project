@@ -156,7 +156,7 @@ export const PdfCompare = () => {
             ))}
           </Grid>
 
-          <Stack direction="row" spacing={3} justifyContent="center" alignItems="center" sx={{ mt: 4 }}>
+          <Stack direction="row" spacing={3} justifyContent="center" alignItems="center" sx={{ mt: 1 }}>
             <IconButton onClick={() => setCurrentPage(prev => Math.max(0, prev - 1))} disabled={currentPage === 0} color="primary">
               <ArrowBack fontSize="large" />
             </IconButton>
