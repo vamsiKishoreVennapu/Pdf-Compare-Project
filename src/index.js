@@ -22,7 +22,8 @@ root.render(
 );
 
 // Register PWA service worker
-serviceWorkerRegistration.register();
+// serviceWorkerRegistration.register();
+serviceWorkerRegistration.unregister();
 
 // For performance measurement
 reportWebVitals();

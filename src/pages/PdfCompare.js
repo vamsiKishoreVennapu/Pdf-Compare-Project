@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
+import { Header } from '../components/Layout/Header';
 import {
-  Box, Card, CardContent, Typography, Button, 
+  Box, Card, CardContent, Typography, Button,
   // Divider, 
   LinearProgress, Stack, IconButton, Modal, Backdrop, Fade, Grid
 } from '@mui/material'; // Imported standard Grid here
@@ -12,14 +13,20 @@ import {
   ZoomIn as ZoomInIcon,
   Close as CloseIcon
 } from '@mui/icons-material';
-import * as pdfjsLib from 'pdfjs-dist';
+// import * as pdfjsLib from 'pdfjs-dist';
 import pixelmatch from 'pixelmatch';
+import * as pdfjsLib from 'pdfjs-dist';
+
+// Use a stable CDN link instead of a local URL
+const pdfjsVersion = '3.11.174'; // Match this to your package.json version
+pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsVersion}/pdf.worker.min.js`;
+
 
 // PDF.js worker setup
-pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
-  'pdfjs-dist/build/pdf.worker.min.js',
-  import.meta.url,
-).toString();
+// pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
+//   'pdfjs-dist/build/pdf.worker.min.js',
+//   import.meta.url,
+// ).toString();
 
 export const PdfCompare = () => {
   const [files, setFiles] = useState({ left: null, right: null });
@@ -32,13 +39,13 @@ export const PdfCompare = () => {
     const file = e.target.files[0];
     if (file) {
       setFiles(prev => ({ ...prev, [side]: file }));
-      setDiffData([]); 
+      setDiffData([]);
     }
   };
 
   const getPageImageData = async (pdfDoc, pageNum) => {
     const page = await pdfDoc.getPage(pageNum);
-    const viewport = page.getViewport({ scale: 2.0 }); 
+    const viewport = page.getViewport({ scale: 2.0 });
     const canvas = document.createElement('canvas');
     const context = canvas.getContext('2d');
     canvas.height = viewport.height;
@@ -58,7 +65,7 @@ export const PdfCompare = () => {
     try {
       const pdf1 = await pdfjsLib.getDocument({ data: await files.left.arrayBuffer() }).promise;
       const pdf2 = await pdfjsLib.getDocument({ data: await files.right.arrayBuffer() }).promise;
-      
+
       const pageCount = Math.min(pdf1.numPages, pdf2.numPages, 6);
       const results = [];
 
@@ -95,13 +102,16 @@ export const PdfCompare = () => {
   };
 
   return (
-    <Box 
-    sx={{ p: 2 }}
+    <Box
+      sx={{ p: 2 }}
     >
+      <Typography variant="h5" gutterBottom sx={{ fontWeight: 700, color: 'primary.main', paddingBottom:"50px"}}>
+        <Header />
+      </Typography>
       {/* <Typography variant="h5" gutterBottom sx={{ fontWeight: 700, color: 'primary.main' }}>
         Visual PDF Analysis
       </Typography> */}
-      
+
       <Card variant="outlined" sx={{ mb: 4, borderRadius: 2, boxShadow: 1 }}>
         <CardContent>
           <Stack direction={{ xs: 'column', sm: 'row' }} spacing={3} justifyContent="center" alignItems="center">
@@ -132,8 +142,8 @@ export const PdfCompare = () => {
                     </Typography>
                   </Box>
                   <Box sx={{ position: 'relative', p: 1 }}>
-                    <IconButton 
-                      size="small" 
+                    <IconButton
+                      size="small"
                       onClick={() => setZoomImg(pane.img)}
                       sx={{ position: 'absolute', right: 8, top: 8, bgcolor: 'rgba(255,255,255,0.8)', '&:hover': { bgcolor: '#fff' }, zIndex: 2 }}
                     >
@@ -172,8 +182,8 @@ export const PdfCompare = () => {
             position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)',
             width: '95vw', maxHeight: '95vh', bgcolor: 'background.paper', boxShadow: 24, p: 2, borderRadius: 2, outline: 'none', overflow: 'auto'
           }}>
-            <IconButton 
-              onClick={() => setZoomImg(null)} 
+            <IconButton
+              onClick={() => setZoomImg(null)}
               sx={{ position: 'fixed', right: 24, top: 24, zIndex: 10, bgcolor: 'rgba(255,255,255,0.9)', boxShadow: 2 }}
             >
               <CloseIcon />
@@ -183,6 +193,7 @@ export const PdfCompare = () => {
         </Fade>
       </Modal>
     </Box>
+
   );
 };
 
