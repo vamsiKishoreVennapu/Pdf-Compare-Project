@@ -134,7 +134,7 @@ export const PdfCompare = () => {
               { label: 'Revised Content', img: diffData[currentPage].revised, color: 'primary.main' },
               { label: 'Visual Differences', img: diffData[currentPage].diff, color: 'error.main', isDiff: true }
             ].map((pane, idx) => (
-              <Grid item xs={12} md={4} key={idx} height={"225px"} width={"325px"}>
+              <Grid item xs={12} md={4} key={idx} width={"350px"}>
                 <Card variant="outlined" sx={{ position: 'relative', borderColor: pane.isDiff ? 'error.light' : 'divider' }}>
                   <Box sx={{ p: 1, textAlign: 'center', bgcolor: pane.isDiff ? 'error.lighter' : 'grey.50', borderBottom: '1px solid', borderColor: 'divider' }}>
                     <Typography variant="caption" sx={{ fontWeight: 'bold', color: pane.color }}>
@@ -156,7 +156,7 @@ export const PdfCompare = () => {
             ))}
           </Grid>
 
-          <Stack paddingTop={"230px"} direction="row" spacing={3} justifyContent="center" alignItems="center" sx={{ mt: 4 }}>
+          <Stack direction="row" spacing={3} justifyContent="center" alignItems="center" sx={{ mt: 4 }}>
             <IconButton onClick={() => setCurrentPage(prev => Math.max(0, prev - 1))} disabled={currentPage === 0} color="primary">
               <ArrowBack fontSize="large" />
             </IconButton>
