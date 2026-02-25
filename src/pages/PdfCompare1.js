@@ -14,7 +14,6 @@ import {
 } from '@mui/icons-material';
 import pixelmatch from 'pixelmatch';
 import * as pdfjsLib from 'pdfjs-dist';
-import { diffWordsWithSpace } from 'diff';
 
 const pdfjsVersion = '3.11.174';
 pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsVersion}/pdf.worker.min.js`;
@@ -22,13 +21,11 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs
 export const PdfCompare = () => {
   const [files, setFiles] = useState({ left: null, right: null });
   const [isComparing, setIsComparing] = useState(false);
-  const [diffData, setDiffData] = useState([]); // Visual Data (URLs)
-  const [extractedData, setExtractedData] = useState({ left: [], right: [] }); // Text per page
-  const [diffResult, setDiffResult] = useState(null); // Current page text diff
-  const [docSummary, setDocSummary] = useState(null); // Overall stats
+  const [diffData, setDiffData] = useState([]); // Visual Data
+  const [diffResult, setDiffResult] = useState(null); // Text Data
   const [currentPage, setCurrentPage] = useState(0);
   const [zoomImg, setZoomImg] = useState(null);
-  const [tabValue, setTabValue] = useState(1); // Default to Text Analysis
+  const [tabValue, setTabValue] = useState(1); // Default to 1 (Text Analysis)
 
   const handleTabChange = (event, newValue) => {
     setTabValue(newValue);
@@ -37,27 +34,25 @@ export const PdfCompare = () => {
   const handleReset = () => {
     setFiles({ left: null, right: null });
     setDiffData([]);
-    setExtractedData({ left: [], right: [] });
     setDiffResult(null);
-    setDocSummary(null);
     setCurrentPage(0);
     setTabValue(1);
     const inputs = document.querySelectorAll('input[type="file"]');
     inputs.forEach(input => (input.value = ""));
   };
 
-  const extractTextPages = async (file) => {
+  const extractText = async (file) => {
     const arrayBuffer = await file.arrayBuffer();
     const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
-    let pagesText = [];
+    let fullText = "";
     const numPages = Math.min(pdf.numPages, 6);
     for (let i = 1; i <= numPages; i++) {
       const page = await pdf.getPage(i);
       const content = await page.getTextContent();
-      const pageString = content.items.map(item => item.str).join(' ');
-      pagesText.push(pageString);
+      const strings = content.items.map(item => item.str);
+      fullText += strings.join(' ') + "\n";
     }
-    return pagesText;
+    return fullText;
   };
 
   const getPageImageData = async (pdfDoc, pageNum) => {
@@ -76,60 +71,34 @@ export const PdfCompare = () => {
     };
   };
 
-  const generatePageDiff = (pageIdx, leftData, rightData) => {
-    const text1 = leftData[pageIdx] || "";
-    const text2 = rightData[pageIdx] || "";
-    const diff = diffWordsWithSpace(text1, text2);
-    setDiffResult({
-      fullDiff: diff,
-      totalAdded: diff.filter(p => p.added).length,
-      totalRemoved: diff.filter(p => p.removed).length
-    });
-  };
-const calculateOverallSummary = (leftPages, rightPages) => {
-    let totalChanges = 0;
-    let totalMatches = 0;
-    const maxPages = Math.max(leftPages.length, rightPages.length);
-
-    for (let i = 0; i < maxPages; i++) {
-      const pageDiff = diffWordsWithSpace(leftPages[i] || "", rightPages[i] || "");
-      
-      // Use for...of instead of .forEach to avoid no-loop-func warning
-      for (const part of pageDiff) {
-        if (part.added || part.removed) {
-          totalChanges += part.value.length;
-        } else {
-          totalMatches += part.value.length;
-        }
-      }
-    }
-
-    const totalChars = totalMatches + totalChanges;
-    const score = totalChars > 0 ? Math.round((totalMatches / totalChars) * 100) : 0;
-
-    setDocSummary({
-      percentage: score,
-      totalChangeLength: totalChanges,
-      pageCount: maxPages
-    });
-  };
-
+  // Unified Comparison: Runs both Visual and Text analysis
   const handleFullComparison = async () => {
     setIsComparing(true);
     setDiffData([]);
     setDiffResult(null);
 
     try {
-      // 1. New Text Comparison Logic
-      const leftPages = await extractTextPages(files.left);
-      const rightPages = await extractTextPages(files.right);
-      setExtractedData({ left: leftPages, right: rightPages });
-      calculateOverallSummary(leftPages, rightPages);
-      generatePageDiff(0, leftPages, rightPages);
-
-      // 2. Visual Comparison Logic
       const leftBuffer = await files.left.arrayBuffer();
       const rightBuffer = await files.right.arrayBuffer();
+
+      // 1. Text Comparison Logic
+      const text1 = await extractText(files.left);
+      const text2 = await extractText(files.right);
+      const lines1 = text1.split('\n');
+      const lines2 = text2.split('\n');
+      const added = lines2.filter(line => !lines1.includes(line) && line.trim() !== "");
+      const removed = lines1.filter(line => !lines2.includes(line) && line.trim() !== "");
+      const totalLines = Math.max(lines1.length, lines2.length);
+      const matches = totalLines - (added.length + removed.length);
+      const percentage = Math.max(0, Math.floor((matches / totalLines) * 100));
+
+      setDiffResult({
+        matches: `${percentage}%`,
+        added,
+        removed,
+      });
+
+      // 2. Visual Comparison Logic
       const pdf1 = await pdfjsLib.getDocument({ data: leftBuffer }).promise;
       const pdf2 = await pdfjsLib.getDocument({ data: rightBuffer }).promise;
       const pageCount = Math.min(pdf1.numPages, pdf2.numPages, 6);
@@ -163,19 +132,12 @@ const calculateOverallSummary = (leftPages, rightPages) => {
     }
   };
 
-  const handlePageChange = (direction) => {
-    const newPage = direction === 'next' ? currentPage + 1 : currentPage - 1;
-    setCurrentPage(newPage);
-    generatePageDiff(newPage, extractedData.left, extractedData.right);
-  };
-
   const handleFileUpload = (e, side) => {
     const file = e.target.files[0];
     if (file) {
       setFiles(prev => ({ ...prev, [side]: file }));
       setDiffData([]);
       setDiffResult(null);
-      setDocSummary(null);
     }
   };
 
@@ -201,98 +163,13 @@ const calculateOverallSummary = (leftPages, rightPages) => {
       </Card>
 
       {/* Tabs appear only when results exist */}
-      {docSummary && (
+      {(diffData.length > 0 || diffResult) && (
         <Tabs value={tabValue} onChange={handleTabChange} centered sx={{ borderBottom: 1, borderColor: 'divider', mb: 3 }}>
           <Tab label="Text Analysis" value={1} />
           <Tab label="Visual Comparison" value={0} />
         </Tabs>
       )}
-      <Grid container spacing={2}>
-        <Grid size={{ xs: 12, md: 3 }}  >
-          
-          {/* NEW SUMMARY SECTION (Replaces old Text Summary) */}
-          {tabValue === 1 && docSummary && (
-            <>
-            <Typography sx={{ fontWeight: 'bold', ml: 1, paddingBottom: "10px"}}>Summary</Typography>
-            <Paper sx={{ p: 3, mb: 4, bgcolor: '#f8f9fa', borderLeft: '6px solid', borderColor: 'primary.main' }}>
-              <Grid container alignItems="center" spacing={4}>
-                <Grid item>
-                  <Typography variant="h6" color="text.secondary">Overall Match</Typography>
-                  <Typography variant="h2" sx={{ fontWeight: 'bold', color: docSummary.percentage > 80 ? 'success.main' : 'warning.main' }}>
-                    {docSummary.percentage}%
-                  </Typography>
-                </Grid>
-                <Divider orientation="vertical" flexItem sx={{ mx: 3 }} />
-                <Grid item xs>
-                  <Typography variant="subtitle1"><b>Document Analysis</b></Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    Comparison of {docSummary.pageCount} pages complete.
-                    We detected changes affecting approximately {docSummary.totalChangeLength} characters across the document.
-                  </Typography>
-                  <Box sx={{ mt: 1, width: '100%', maxWidth: 400 }}>
-                    <LinearProgress
-                      variant="determinate"
-                      value={docSummary.percentage}
-                      color={docSummary.percentage > 80 ? "success" : "warning"}
-                      sx={{ height: 10, borderRadius: 5 }}
-                    />
-                  </Box>
-                </Grid>
-              </Grid>
-            </Paper>
-            </>
-          )}
 
-        </Grid>
-
-        <Grid size={{ xs: 4, md: 9 }}>
-          {/* TAB 1: NEW TEXT ANALYSIS VIEW */}
-          {tabValue === 1 && diffResult && (
-            <Box>
-              <Grid container spacing={2}>
-                <Grid item size={{ xs: 12, md: 6 }} >
-                  <Typography variant="overline" sx={{ fontWeight: 'bold', ml: 1 }}>Original</Typography>
-                  <Paper variant="outlined" sx={{ p: 2, height: 365, overflow: 'auto', bgcolor: '#fafafa', lineHeight: 1.6 }}>
-                    {diffResult.fullDiff.map((part, i) => !part.added && (
-                      <Box component="span" key={i} sx={{
-                        bgcolor: part.removed ? '#ffebee' : 'transparent',
-                        textDecoration: part.removed ? 'line-through' : 'none',
-                        color: part.removed ? '#c62828' : 'inherit',
-                        display: 'inline'
-                      }}>
-                        {part.value}
-                      </Box>
-                    ))}
-                  </Paper>
-                </Grid>
-                <Grid item size={{ xs: 12, md: 6 }}>
-                  <Typography variant="overline" sx={{ fontWeight: 'bold', ml: 1 }}>Revised</Typography>
-                  <Paper variant="outlined" sx={{ p: 2, height: 365, overflow: 'auto', bgcolor: '#fafafa', lineHeight: 1.6 }}>
-                    {diffResult.fullDiff.map((part, i) => !part.removed && (
-                      <Box component="span" key={i} sx={{
-                        bgcolor: part.added ? '#e8f5e9' : 'transparent',
-                        color: part.added ? '#2e7d32' : 'inherit',
-                        display: 'inline'
-                      }}>
-                        {part.value}
-                      </Box>
-                    ))}
-                  </Paper>
-                </Grid>
-              </Grid>
-              <Stack direction="row" spacing={3} justifyContent="center" alignItems="center" sx={{ mt: 3 }}>
-                <IconButton onClick={() => handlePageChange('prev')} disabled={currentPage === 0} color="primary">
-                  <ArrowBack fontSize="large" />
-                </IconButton>
-                <Typography variant="body1" sx={{ fontWeight: 600 }}>Page {currentPage + 1} of {diffData.length}</Typography>
-                <IconButton onClick={() => handlePageChange('next')} disabled={currentPage === diffData.length - 1} color="primary">
-                  <ArrowForward fontSize="large" />
-                </IconButton>
-              </Stack>
-            </Box>
-          )}
-        </Grid>
-      </Grid>
       {/* TAB 0: VISUAL ANALYSIS */}
       {tabValue === 0 && diffData.length > 0 && (
         <Box>
@@ -303,6 +180,7 @@ const calculateOverallSummary = (leftPages, rightPages) => {
               { label: 'Visual Differences', img: diffData[currentPage].diff, color: 'error.main', isDiff: true }
             ].map((pane, idx) => (
               <Grid item size={{ xs: 12, md: 4 }} key={idx}>
+                {/* <Grid item xs={12} md={4} key={idx}> */}
                 <Card variant="outlined" sx={{ position: 'relative', borderColor: pane.isDiff ? 'error.light' : 'divider' }}>
                   <Box sx={{ p: 1, textAlign: 'center', bgcolor: pane.isDiff ? 'error.lighter' : 'grey.50', borderBottom: '1px solid', borderColor: 'divider' }}>
                     <Typography variant="caption" sx={{ fontWeight: 'bold', color: pane.color }}>{pane.label}</Typography>
@@ -318,16 +196,68 @@ const calculateOverallSummary = (leftPages, rightPages) => {
             ))}
           </Grid>
           <Stack direction="row" spacing={3} justifyContent="center" alignItems="center" sx={{ mt: 3 }}>
-            <IconButton onClick={() => handlePageChange('prev')} disabled={currentPage === 0} color="primary">
+            <IconButton onClick={() => setCurrentPage(prev => Math.max(0, prev - 1))} disabled={currentPage === 0} color="primary">
               <ArrowBack fontSize="large" />
             </IconButton>
             <Typography variant="body1" sx={{ fontWeight: 600 }}>Page {currentPage + 1} of {diffData.length}</Typography>
-            <IconButton onClick={() => handlePageChange('next')} disabled={currentPage === diffData.length - 1} color="primary">
+            <IconButton onClick={() => setCurrentPage(prev => Math.min(diffData.length - 1, prev + 1))} disabled={currentPage === diffData.length - 1} color="primary">
               <ArrowForward fontSize="large" />
             </IconButton>
           </Stack>
         </Box>
       )}
+
+      <Grid container spacing={3}>
+        {/* TAB 1: TEXT ANALYSIS */}
+        {tabValue === 1 && diffResult && (
+          <>
+            <Grid size={{ xs: 12, md: 4 }}>
+              <Card sx={{ height: '100%' }}>
+                <CardContent>
+                  <Typography variant="h6" gutterBottom>Text Summary</Typography>
+                  <Divider sx={{ mb: 2 }} />
+                  <Typography variant="h3" color={parseInt(diffResult.matches) > 80 ? "success.main" : "warning.main"}>
+                    {diffResult.matches}
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">Similarity Score</Typography>
+                  <Box sx={{ mt: 3 }}>
+                    <Typography variant="body1">
+                      Found <b>{diffResult.added.length}</b> additions and <b>{diffResult.removed.length}</b> deletions.
+                    </Typography>
+                  </Box>
+                </CardContent>
+              </Card>
+            </Grid>
+            <Grid size={{ xs: 12, md: 8 }}>
+              <Card>
+                <CardContent>
+                  <Typography variant="h6" gutterBottom>Detailed Changes</Typography>
+                  <Paper variant="outlined" sx={{ p: 2, bgcolor: 'grey.50', maxHeight: 400, overflow: 'auto' }}>
+                    {diffResult.added.length === 0 && diffResult.removed.length === 0 ? (
+                      <Typography color="text.secondary">No text differences detected.</Typography>
+                    ) : (
+                      <>
+                        {diffResult.added.map((line, i) => (
+                          <Box key={`add-${i}`} sx={{ borderLeft: '4px solid #4caf50', pl: 2, mb: 1, bgcolor: '#e8f5e9' }}>
+                            <Typography variant="caption" color="success.main">+ Added</Typography>
+                            <Typography variant="body2">{line}</Typography>
+                          </Box>
+                        ))}
+                        {diffResult.removed.map((line, i) => (
+                          <Box key={`rem-${i}`} sx={{ borderLeft: '4px solid #f44336', pl: 2, mb: 1, bgcolor: '#ffebee' }}>
+                            <Typography variant="caption" color="error.main">- Removed</Typography>
+                            <Typography variant="body2">{line}</Typography>
+                          </Box>
+                        ))}
+                      </>
+                    )}
+                  </Paper>
+                </CardContent>
+              </Card>
+            </Grid>
+          </>
+        )}
+      </Grid>
 
       {/* Zoom Modal */}
       <Modal open={!!zoomImg} onClose={() => setZoomImg(null)} closeAfterTransition BackdropComponent={Backdrop} BackdropProps={{ timeout: 500 }}>
