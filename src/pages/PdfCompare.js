@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Header } from '../components/Layout/Header';
+// import { Header } from '../components/Layout/Header';
 import {
   Box, Card, CardContent, Typography, Button, Divider, Paper,
   LinearProgress, Stack, IconButton, Modal, Backdrop, Fade, Grid, Tabs, Tab
@@ -35,6 +35,18 @@ export const PdfCompare = () => {
   };
 
   const handleReset = () => {
+    setFiles({ left: null, right: null });
+    setDiffData([]);
+    setExtractedData({ left: [], right: [] });
+    setDiffResult(null);
+    setDocSummary(null);
+    setCurrentPage(0);
+    setTabValue(1);
+    const inputs = document.querySelectorAll('input[type="file"]');
+    inputs.forEach(input => (input.value = ""));
+  };
+
+  const handleEdit = () => {
     setFiles({ left: null, right: null });
     setDiffData([]);
     setExtractedData({ left: [], right: [] });
@@ -86,14 +98,14 @@ export const PdfCompare = () => {
       totalRemoved: diff.filter(p => p.removed).length
     });
   };
-const calculateOverallSummary = (leftPages, rightPages) => {
+  const calculateOverallSummary = (leftPages, rightPages) => {
     let totalChanges = 0;
     let totalMatches = 0;
     const maxPages = Math.max(leftPages.length, rightPages.length);
 
     for (let i = 0; i < maxPages; i++) {
       const pageDiff = diffWordsWithSpace(leftPages[i] || "", rightPages[i] || "");
-      
+
       // Use for...of instead of .forEach to avoid no-loop-func warning
       for (const part of pageDiff) {
         if (part.added || part.removed) {
@@ -180,9 +192,8 @@ const calculateOverallSummary = (leftPages, rightPages) => {
   };
 
   return (
-    <Box sx={{ p: 4 }}>
-      <Header />
-
+    <Box sx={{ p: 0 }}>
+      {/* <Header /> */}
       <Card variant="outlined" sx={{ mb: 4, borderRadius: 2, boxShadow: 1, mt: 4 }}>
         <CardContent>
           <Stack direction={{ xs: 'column', sm: 'row' }} spacing={3} justifyContent="center" alignItems="center">
@@ -193,8 +204,10 @@ const calculateOverallSummary = (leftPages, rightPages) => {
               {isComparing ? 'Analyzing...' : 'Compare PDFs'}
             </Button>
             {(files.left || files.right) && (
-              <Button variant="outlined" color="error" onClick={handleReset} sx={{ height: 40 }}>Reset</Button>
-            )}
+              <>
+                <Button variant="outlined" color="blue" onClick={handleEdit} sx={{ height: 40 }}>Edit</Button>
+                <Button variant="outlined" color="error" onClick={handleReset} sx={{ height: 40 }}>Reset</Button>
+              </>)}
           </Stack>
         </CardContent>
         {isComparing && <LinearProgress />}
@@ -209,37 +222,37 @@ const calculateOverallSummary = (leftPages, rightPages) => {
       )}
       <Grid container spacing={2}>
         <Grid size={{ xs: 12, md: 3 }}  >
-          
+
           {/* NEW SUMMARY SECTION (Replaces old Text Summary) */}
           {tabValue === 1 && docSummary && (
             <>
-            <Typography sx={{ fontWeight: 'bold', ml: 1, paddingBottom: "10px"}}>Summary</Typography>
-            <Paper sx={{ p: 3, mb: 4, bgcolor: '#f8f9fa', borderLeft: '6px solid', borderColor: 'primary.main' }}>
-              <Grid container alignItems="center" spacing={4}>
-                <Grid item>
-                  <Typography variant="h6" color="text.secondary">Overall Match</Typography>
-                  <Typography variant="h2" sx={{ fontWeight: 'bold', color: docSummary.percentage > 80 ? 'success.main' : 'warning.main' }}>
-                    {docSummary.percentage}%
-                  </Typography>
+              <Typography sx={{ fontWeight: 'bold', ml: 1, paddingBottom: "10px" }}>Summary</Typography>
+              <Paper sx={{ p: 3, mb: 4, bgcolor: '#f8f9fa', borderLeft: '6px solid', borderColor: 'primary.main' }}>
+                <Grid container alignItems="center" spacing={4}>
+                  <Grid item>
+                    <Typography variant="h6" color="text.secondary">Overall Match</Typography>
+                    <Typography variant="h2" sx={{ fontWeight: 'bold', color: docSummary.percentage > 80 ? 'success.main' : 'warning.main' }}>
+                      {docSummary.percentage}%
+                    </Typography>
+                  </Grid>
+                  <Divider orientation="vertical" flexItem sx={{ mx: 3 }} />
+                  <Grid item xs>
+                    <Typography variant="subtitle1"><b>Document Analysis</b></Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      Comparison of {docSummary.pageCount} pages complete.
+                      We detected changes affecting approximately {docSummary.totalChangeLength} characters across the document.
+                    </Typography>
+                    <Box sx={{ mt: 1, width: '100%', maxWidth: 400 }}>
+                      <LinearProgress
+                        variant="determinate"
+                        value={docSummary.percentage}
+                        color={docSummary.percentage > 80 ? "success" : "warning"}
+                        sx={{ height: 10, borderRadius: 5 }}
+                      />
+                    </Box>
+                  </Grid>
                 </Grid>
-                <Divider orientation="vertical" flexItem sx={{ mx: 3 }} />
-                <Grid item xs>
-                  <Typography variant="subtitle1"><b>Document Analysis</b></Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    Comparison of {docSummary.pageCount} pages complete.
-                    We detected changes affecting approximately {docSummary.totalChangeLength} characters across the document.
-                  </Typography>
-                  <Box sx={{ mt: 1, width: '100%', maxWidth: 400 }}>
-                    <LinearProgress
-                      variant="determinate"
-                      value={docSummary.percentage}
-                      color={docSummary.percentage > 80 ? "success" : "warning"}
-                      sx={{ height: 10, borderRadius: 5 }}
-                    />
-                  </Box>
-                </Grid>
-              </Grid>
-            </Paper>
+              </Paper>
             </>
           )}
 

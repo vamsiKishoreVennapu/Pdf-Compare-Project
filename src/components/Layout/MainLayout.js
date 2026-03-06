@@ -1,66 +1,39 @@
-// import React from 'react';
-// import { Box, Toolbar } from '@mui/material';
-// import { SidebarCollapsable } from './SidebarCollapsable';
-// // import { Sidebar } from './Sidebar';
-// import { Header } from './Header';
-
-// const DRAWER_WIDTH = 260;
-
-// export const MainLayout = ({ children }) => {
-//   return (
-//     <Box sx={{ display: 'flex' }}>
-//       {/* <Sidebar /> */}
-//       <SidebarCollapsable />
-//       <Header />
-//       <Box
-//         component="main"
-//         sx={{
-//           flexGrow: 1,
-//           p: 3,
-//           width: `calc(100% - ${DRAWER_WIDTH}px)`,
-//           minHeight: '100vh',
-//           backgroundColor: 'background.default',
-//         }}
-//       >
-//         <Toolbar />
-//         {children}
-//       </Box>
-//     </Box>
-//   );
-// };
-
-
 import React from 'react';
 import { Box, Toolbar } from '@mui/material';
-// import { SidebarCollapsable } from './SidebarCollapsable';
+import { SidebarCollapsable } from './SidebarCollapsable';
 import { Header } from './Header';
 
 export const MainLayout = ({ children }) => {
   return (
-    <Box sx={{ display: 'flex' }}>
-      {/* <SidebarCollapsable /> */}
+    <Box sx={{ display: 'flex', minHeight: '100vh' }}>
+      {/* The Header is position="fixed" (handled inside Header.js).
+         It will stay at the top across the full width. 
+      */}
       <Header />
+
+      {/* The Sidebar is variant="temporary" (handled inside SidebarCollapsable.js).
+         It slides OVER the content without affecting this Box's width.
+      */}
+      <SidebarCollapsable />
+
       <Box
         component="main"
         sx={{
-          // flexGrow allows this box to take up all remaining horizontal space
           flexGrow: 1,
           p: 3,
-          // Remove the hardcoded calc(100% - 260px)
-          // Setting width to 0 ensures the flexbox can shrink/grow correctly without 
-          // being pushed out by long content or pre-defined widths.
-          width: { sm: `calc(100% - 0px)` }, 
-          minHeight: '100vh',
+          width: '100%', // Fixed width ensures no shifting
           backgroundColor: 'background.default',
-          // Transition matches the sidebar for a smooth animation
-          transition: (theme) => theme.transitions.create(['width', 'margin'], {
-            easing: theme.transitions.easing.sharp,
-            duration: theme.transitions.duration.enteringScreen,
-          }),
+          minHeight: '100vh',
+          display: 'flex',
+          flexDirection: 'column',
         }}
       >
+        {/* Empty Toolbar acts as a spacer so content isn't hidden behind the fixed Header */}
         <Toolbar />
-        {children}
+        
+        <Box sx={{ flexGrow: 1 }}>
+          {children}
+        </Box>
       </Box>
     </Box>
   );

@@ -10,7 +10,9 @@ import { register } from './serviceWorkerRegistration';
 // Eager load essential pages
 // import { Login } from './pages/Login';
 import { Dashboard } from './pages/Dashboard';
+import { DashboardTest } from './pages/DashboardTest';
 import { PdfCompare } from './pages/PdfCompare';
+import { PdfGenerate } from './pages/PDFGenerate/PDFGenerate';
 
 // Lazy load other pages
 const Employees = lazy(() => import('./pages/Employees').then(m => ({ default: m.Employees })));
@@ -42,7 +44,6 @@ const LoadingFallback = () => (
 
 const App = () => {
   useEffect(() => {
-    // Register service worker for PWA functionality
     register();
   }, []);
 
@@ -50,18 +51,12 @@ const App = () => {
     <ThemeProvider>
       <AuthProvider>
         <Routes>
-          {/* Public routes */}
-          {/* <Route path="/login" element={<Login />} />
-              <Route path="/unauthorized" element={
-                <Suspense fallback={<LoadingFallback />}>
-                  <Unauthorized />
-                </Suspense>
-              } /> */}
-          <Route path="/pdf-compare" element={<PdfCompare />} />
-          {/* <Route path="/" element={<Navigate to="/pdf-compare" replace />} /> */}
-          <Route path="*" element={<Navigate to="/pdf-compare" replace />} />
+          {/* 1. Public PDF Routes (Wrapped in MainLayout) */}
+          <Route path="/pdf" element={<MainLayout><DashboardTest /></MainLayout>} />
+          <Route path="/pdf/compare" element={<MainLayout><PdfCompare /></MainLayout>} />
+          <Route path="/pdf/generate" element={<MainLayout><PdfGenerate /></MainLayout>} />
 
-          {/* Protected routes */}
+          {/* 2. Protected App Routes */}
           <Route
             path="/*"
             element={
@@ -69,80 +64,30 @@ const App = () => {
                 <MainLayout>
                   <Suspense fallback={<LoadingFallback />}>
                     <Routes>
-                      <Route path="/dashboard" element={<Dashboard />} />
-                      <Route path="/calendar" element={<Calendar />} />
-                      <Route path="/leave-request" element={<LeaveRequest />} />
-                      <Route path="/time-track" element={<TimeTrack />} />
-                      <Route path="/performance" element={<Performance />} />
-                      <Route path="/settings" element={<Settings />} />
-                      {/* <Route path="/pdf-compare" element={<PdfCompare />} /> */}
-
-                      {/* Admin only routes */}
-                      <Route
-                        path="/employees"
-                        element={
-                          <ProtectedRoute allowedRoles={['admin']}>
-                            <Employees />
-                          </ProtectedRoute>
-                        }
-                      />
-                      <Route
-                        path="/recruitment"
-                        element={
-                          <ProtectedRoute allowedRoles={['admin']}>
-                            <Recruitment />
-                          </ProtectedRoute>
-                        }
-                      />
-                      <Route
-                        path="/payroll"
-                        element={
-                          <ProtectedRoute allowedRoles={['admin']}>
-                            <Payroll />
-                          </ProtectedRoute>
-                        }
-                      />
-                      <Route
-                        path="/reporting"
-                        element={
-                          <ProtectedRoute allowedRoles={['admin']}>
-                            <Reporting />
-                          </ProtectedRoute>
-                        }
-                      />
-                      <Route
-                        path="/planning"
-                        element={
-                          <ProtectedRoute allowedRoles={['admin']}>
-                            <Planning />
-                          </ProtectedRoute>
-                        }
-                      />
-                      <Route
-                        path="/company"
-                        element={
-                          <ProtectedRoute allowedRoles={['admin']}>
-                            <Company />
-                          </ProtectedRoute>
-                        }
-                      />
-
-                      {/* Redirect root to dashboard */}
-                      {/* <Route path="/" element={<Navigate to="/dashboard" replace />} />
-                          <Route path="*" element={<Navigate to="/dashboard" replace />} /> */}
-
-                      {/* <Route path="/" element={<Navigate to="/pdf-compare" replace />} />
-                          <Route path="*" element={<Navigate to="/pdf-compare" replace />} /> */}
+                      <Route path="dashboard" element={<Dashboard />} />
+                      <Route path="calendar" element={<Calendar />} />
+                      <Route path="settings" element={<Settings />} />
+                      {/* Admin Routes */}
+                      <Route path="employees" element={
+                        <ProtectedRoute allowedRoles={['admin']}><Employees /></ProtectedRoute>
+                      } />
+                      {/* Add other nested routes here without the leading slash */}
                     </Routes>
                   </Suspense>
                 </MainLayout>
               </ProtectedRoute>
             }
           />
+
+          {/* 3. Global Redirects */}
+          {/* If they hit exactly "/", send to "/pdf" */}
+          <Route path="/" element={<Navigate to="/pdf" replace />} />
+
+          {/* If they hit ANY unexpected route, return to base PDF url */}
+          <Route path="*" element={<Navigate to="/pdf" replace />} />
         </Routes>
       </AuthProvider>
     </ThemeProvider>
   );
 };
-
 export default App;

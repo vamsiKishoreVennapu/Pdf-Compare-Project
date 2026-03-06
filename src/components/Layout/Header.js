@@ -11,7 +11,9 @@ import {
   // MenuItem,
   // Divider,
   Typography,
+    
 } from '@mui/material';
+
 import {
   //   Search as SearchIcon,
   //   Notifications as NotificationsIcon,
@@ -19,6 +21,7 @@ import {
   Brightness7 as LightModeIcon,
   //   Logout as LogoutIcon,
   //   Person as PersonIcon,
+  PictureAsPdf
 } from '@mui/icons-material';
 // import { useAuth } from '../../contexts/AuthContext';
 import { useTheme } from '../../contexts/ThemeContext';
@@ -55,7 +58,11 @@ export const Header = () => {
       elevation={0}
       sx={{
         // width: `calc(100% - ${DRAWER_WIDTH}px)`,
-        ml: `${DRAWER_WIDTH}px`,
+        width: '100%', // Full width
+        // zIndex: (theme) => theme.zIndex.drawer + 1,
+        // ml: `${DRAWER_WIDTH}px`,
+        zIndex: (theme) => theme.zIndex.drawer + 1, // Keep header above sidebar
+    ml: 0, // Ensure no margin is pushing the header right
         borderBottom: '1px solid',
         borderColor: 'divider',
         backgroundColor: 'background.paper',
@@ -82,8 +89,9 @@ export const Header = () => {
             inputProps={{ 'aria-label': 'search' }}
           />
         </Box> */}
+        <PictureAsPdf sx={{ color: '#ff4d4d', mr: 1.5 }} />
         <Typography variant="h5" gutterBottom sx={{ fontWeight: 700, color: 'primary.main' }}>
-          Visual PDF Analysis
+          PDF Organize
         </Typography>
         <Box sx={{ flexGrow: 1 }} />
 
