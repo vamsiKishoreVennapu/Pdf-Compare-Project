@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
     Box, Button, Typography, Paper, TextField, Stack,
-    IconButton, Divider, ToggleButtonGroup, ToggleButton,
-    Tooltip, MenuItem, Select, FormControl, InputLabel
+    // IconButton, Tooltip,
+    Divider, ToggleButtonGroup, ToggleButton,
+    MenuItem, Select, FormControl, InputLabel, useTheme
 } from '@mui/material';
 import {
     DeleteForever as DeleteIcon, CloudDownload as DownloadIcon,
@@ -10,24 +11,36 @@ import {
     DragIndicator as DragIcon, FormatBold, FormatItalic,
     FormatAlignLeft, FormatAlignCenter, FormatAlignRight,
 } from '@mui/icons-material';
-import { Document, Page, Text, View, PDFDownloadLink, Image as PdfImage, Link as PdfLink } from '@react-pdf/renderer';
+import {
+    Document, Page, Text, View, PDFDownloadLink, Image as PdfImage,
+    //  Link as PdfLink
+} from '@react-pdf/renderer';
 import { Rnd } from 'react-rnd';
+import { usePdfStore } from './usePdfStore'; // Import the hook
+
+const DEFAULT_LAYOUT = [{
+    id: 1, type: 'text', content: 'Welcome!',
+    x: 50, y: 50, w: 400, h: 80,
+    fontSize: 20, bold: false, italic: false, align: 'left',
+    fontFamily: 'Helvetica', rotation: 0
+}];
 
 export const PdfGenerate = () => {
-    const [elements, setElements] = useState([
-        {
-            id: 1, type: 'text', content: 'Welcome! Start composing your PDF.',
-            x: 50, y: 50, w: 400, h: 80,
-            fontSize: 20, bold: false, italic: false, underline: false,
-            color: '#000000', bgColor: 'transparent', align: 'left',
-            lineHeight: 1.2, fontFamily: 'Helvetica', url: '',
-            flipX: false, flipY: false, rotation: 0
-        },
-    ]);
+    const theme = useTheme();
+    const isDarkMode = theme.palette.mode === 'dark';
+
+    const {
+        elements,
+        setElements,
+        saveToJsonFile,
+        loadFromJsonFile,
+        resetStore,
+        handlePdfImport
+    } = usePdfStore(DEFAULT_LAYOUT);
+
     const [selectedId, setSelectedId] = useState(null);
     const selectedElement = elements.find(el => el.id === selectedId);
 
-    // --- ACTIONS (Unchanged Functionality) ---
     const addElement = (type) => {
         const newEl = {
             id: Date.now(),
@@ -62,161 +75,253 @@ export const PdfGenerate = () => {
             reader.readAsDataURL(file);
         }
     };
+    const totalCanvasHeight = elements.length > 0
+        ? Math.max(...elements.map(el => el.y + el.h)) + 100
+        : '297mm';
 
+    const PAGE_HEIGHT = 842;
+
+    const pages = useMemo(() => {
+        const pageCount = Math.ceil(parseFloat(totalCanvasHeight) / PAGE_HEIGHT);
+        const groupedPages = [];
+
+        for (let i = 0; i < pageCount; i++) {
+            const pageElements = elements.filter(el =>
+                el.y >= i * PAGE_HEIGHT && el.y < (i + 1) * PAGE_HEIGHT
+            );
+            // Even if a page is empty, we keep it to maintain index/offset
+            groupedPages.push(pageElements);
+        }
+        return groupedPages;
+    }, [elements, totalCanvasHeight]);
     return (
         <Box sx={{
             display: 'flex',
             height: 'calc(100vh - 115px)',
-            // mt: -1,
-            overflow: 'hidden'
+            width: '100%',
+            overflow: 'hidden',
+            bgcolor: isDarkMode ? '#0f172a' : '#f8fafc', // Slate 900 for dark mode
+            color: 'text.primary'
         }}>
+            {/* CANVAS AREA - The "Dark Studio" */}
             <Box
                 id="canvas-container"
                 onClick={(e) => e.target.id === 'canvas-container' && setSelectedId(null)}
-                sx={{ flex: 1, overflow: 'auto', p: 2, display: 'flex', justifyContent: 'center', bgcolor: '#f8fafc' }}
+                sx={{
+                    flex: 1,
+                    overflow: 'auto',
+                    p: 2,
+                    display: 'flex',
+                    justifyContent: 'center',
+                    backgroundImage: isDarkMode
+                        ? 'radial-gradient(#1e293b 1px, transparent 1px)'
+                        : 'radial-gradient(#e2e8f0 1px, transparent 1px)',
+                    backgroundSize: '20px 20px'
+                }}
             >
                 <Paper
-                    elevation={4}
-                    sx={{ width: '180mm', height: '297mm', bgcolor: 'white', position: 'relative', flexShrink: 0 }}
+                    elevation={10}
+                    sx={{
+                        width: '180mm',
+                        // height: '297mm',
+                        height: totalCanvasHeight,
+                        bgcolor: 'white', // PDF Paper should always be white
+                        position: 'relative',
+                        background: `linear-gradient(to bottom, 
+            transparent ${PAGE_HEIGHT - 1}px, 
+            #ef4444 ${PAGE_HEIGHT - 1}px, 
+            #ef4444 ${PAGE_HEIGHT}px, 
+            transparent ${PAGE_HEIGHT}px)`,
+                        backgroundSize: `100% ${PAGE_HEIGHT}px`,
+                        flexShrink: 0,
+                        mb: 10,
+                        boxShadow: isDarkMode ? '0 0 40px rgba(0,0,0,0.6)' : '0 0 20px rgba(0,0,0,0.1)'
+                    }}
                 >
-                    {elements.map((el) => (
-                        <Rnd
-                            key={el.id}
-                            size={{ width: el.w, height: el.h }}
-                            position={{ x: el.x, y: el.y }}
-                            onDragStop={(e, d) => updateElement(el.id, { x: d.x, y: d.y })}
-                            onResizeStop={(e, dir, ref, delta, pos) => updateElement(el.id, { w: ref.offsetWidth, h: ref.offsetHeight, ...pos })}
-                            dragHandleClassName="drag-handle"
-                            bounds="parent"
-                            onMouseDown={() => setSelectedId(el.id)}
-                        >
-                            <Box sx={{
-                                width: '100%', height: '100%',
-                                outline: selectedId === el.id ? '2px solid #3b82f6' : '1px dashed #cbd5e1',
-                                position: 'relative',
-                                transform: `rotate(${el.rotation}deg)`
-                            }}>
-                                {selectedId === el.id && (
-                                    <Box className="drag-handle" sx={{
-                                        position: 'absolute', top: -24, left: 0, bgcolor: '#3b82f6', color: 'white',
-                                        cursor: 'move', px: 0.5, borderRadius: '4px 4px 0 0', display: 'flex'
-                                    }}><DragIcon fontSize="small" /></Box>
-                                )}
+                    {elements.map((el) => {
+                        const isSelected = selectedId === el.id;
 
-                                {el.type === 'text' ? (
-                                    <TextField
-                                        fullWidth multiline variant="standard"
-                                        value={el.content}
-                                        onChange={(e) => updateElement(el.id, { content: e.target.value })}
-                                        InputProps={{
-                                            disableUnderline: true,
-                                            sx: {
-                                                p: 1, fontSize: el.fontSize, fontWeight: el.bold ? 700 : 400,
-                                                fontStyle: el.italic ? 'italic' : 'normal',
-                                                textDecoration: el.underline ? 'underline' : 'none',
-                                                color: el.color, lineHeight: el.lineHeight,
-                                                fontFamily: el.fontFamily, textAlign: el.align,
-                                                '& .MuiInputBase-input': { textAlign: el.align, backgroundColor: el.bgColor }
-                                            }
-                                        }}
-                                    />
-                                ) : (
-                                    <Box sx={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                        {el.src ? (
-                                            <img src={el.src} style={{
-                                                width: '100%', height: '100%', objectFit: 'contain',
-                                                transform: `scaleX(${el.flipX ? -1 : 1}) scaleY(${el.flipY ? -1 : 1})`
-                                            }} alt="" />
-                                        ) : (
-                                            <Button variant="outlined" component="label" size="small">
-                                                Upload <input type="file" hidden accept="image/*" onChange={(e) => handleImageUpload(e, el.id)} />
-                                            </Button>
-                                        )}
-                                    </Box>
-                                )}
-                            </Box>
-                        </Rnd>
-                    ))}
+                        return (
+                            <Rnd
+                                key={el.id}
+                                size={{ width: el.w, height: el.h }}
+                                position={{ x: el.x, y: el.y }}
+                                disableDragging={!isSelected}
+                                enableResizing={isSelected}
+                                onDragStop={(e, d) => updateElement(el.id, { x: d.x, y: d.y })}
+                                // onDragStop={(e, d) => updateElement(el.id, { x: d.x, y: d.y })}
+                                onResizeStop={(e, dir, ref, delta, pos) => updateElement(el.id, { w: ref.offsetWidth, h: ref.offsetHeight, ...pos })}
+                                dragHandleClassName="drag-handle"
+                                bounds="parent"
+                                onMouseDown={(e) => {
+                                    e.stopPropagation();
+                                    setSelectedId(el.id);
+                                }}
+                            >
+                                <Box sx={{
+                                    width: '100%', height: '100%',
+                                    outline: selectedId === el.id ? '2px solid #3b82f6' : '1px dashed #cbd5e1',
+                                    position: 'relative',
+                                    transform: `rotate(${el.rotation}deg)`,
+                                    bgcolor: el.type === 'text' ? el.bgColor : 'transparent'
+                                }}>
+                                    {selectedId === el.id && (
+                                        <Box className="drag-handle" sx={{
+                                            position: 'absolute', top: -24, left: 0, bgcolor: '#3b82f6', color: 'white',
+                                            cursor: 'move', px: 0.5, borderRadius: '4px 4px 0 0', display: 'flex', zIndex: 10
+                                        }}><DragIcon fontSize="small" /></Box>
+                                    )}
+
+                                    {el.type === 'text' ? (
+                                        <TextField
+                                            fullWidth multiline variant="standard"
+                                            value={el.content}
+                                            onChange={(e) => updateElement(el.id, { content: e.target.value })}
+                                            InputProps={{
+                                                disableUnderline: true,
+                                                sx: {
+                                                    p: 1, fontSize: el.fontSize, fontWeight: el.bold ? 700 : 400,
+                                                    fontStyle: el.italic ? 'italic' : 'normal',
+                                                    textDecoration: el.underline ? 'underline' : 'none',
+                                                    color: el.color, lineHeight: el.lineHeight,
+                                                    fontFamily: el.fontFamily, textAlign: el.align,
+                                                    height: '100%',
+                                                    '& .MuiInputBase-input': {
+                                                        textAlign: el.align,
+                                                        // Ensure text editor remains visible against the white paper
+                                                        color: el.color
+                                                    }
+                                                }
+                                            }}
+                                        />
+                                    ) : (
+                                        <Box sx={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                            {el.src ? (
+                                                <img src={el.src} style={{
+                                                    width: '100%', height: '100%', objectFit: 'contain',
+                                                    transform: `scaleX(${el.flipX ? -1 : 1}) scaleY(${el.flipY ? -1 : 1})`
+                                                }} alt="" />
+                                            ) : (
+                                                <Button variant="outlined" component="label" size="small">
+                                                    Upload <input type="file" hidden accept="image/*" onChange={(e) => handleImageUpload(e, el.id)} />
+                                                </Button>
+                                            )}
+                                        </Box>
+                                    )}
+                                </Box>
+                            </Rnd>
+                        )
+                    })}
                 </Paper>
             </Box>
 
-            {/* RIGHT SIDEBAR: Actions + Properties */}
-            <Paper square sx={{ width: 300, borderLeft: '1px solid #e2e8f0', display: 'flex', flexDirection: 'column', bgcolor: 'white' }}>
+            {/* RIGHT SIDEBAR */}
+            <Paper
+                square
+                elevation={0}
+                sx={{
+                    width: 320,
+                    borderLeft: '1px solid',
+                    borderColor: 'divider',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    bgcolor: 'background.paper',
+                    zIndex: 20
+                }}
+            >
+                <Box sx={{ p: 2, borderBottom: '1px solid', borderColor: 'divider' }}>
 
-                {/* NEW PLACEMENT FOR EXPORT & ADD BUTTONS */}
-                <Box sx={{ p: 2, borderBottom: '1px solid #f1f5f9' }}>
                     <Stack spacing={1.5}>
+
+                        <Typography variant="caption" color="text.secondary">JSON Storage</Typography>
                         <Stack direction="row" spacing={1}>
-                            <Button fullWidth variant="outlined" size="small" startIcon={<TextIcon />} onClick={() => addElement('text')}>Add Text</Button>
-                            <Button fullWidth variant="outlined" size="small" startIcon={<ImageIcon />} onClick={() => addElement('image')}>Add Image</Button>
+                            <Button variant="outlined" size="small" onClick={saveToJsonFile}>
+                                Export
+                            </Button>
+                            <Button variant="outlined" size="small" component="label">
+                                Import
+                                <input
+                                    type="file"
+                                    hidden
+                                    accept=".json"
+                                    onChange={(e) => loadFromJsonFile(e.target.files[0])}
+                                />
+                            </Button>
+                            <Button variant="contained" component="label" color="secondary" fullWidth>
+                                Import Existing PDF
+                                <input type="file" hidden accept=".pdf" onChange={handlePdfImport} />
+                            </Button>
+                            <Button color="error" size="small" onClick={resetStore}>
+                                Reset Design
+                            </Button>
+                        </Stack>
+
+                        <Divider />
+
+                        <Stack direction="row" spacing={1}>
+                            <Button fullWidth variant="outlined" size="small" startIcon={<TextIcon />} onClick={() => addElement('text')}>Text</Button>
+                            <Button fullWidth variant="outlined" size="small" startIcon={<ImageIcon />} onClick={() => addElement('image')}>Image</Button>
                         </Stack>
 
                         <PDFDownloadLink
                             document={
                                 <Document>
-                                    <Page size="A4" style={{ padding: 0 }}>
-                                        {elements.map(el => (
-                                            <View key={el.id} style={{
-                                                position: 'absolute', top: el.y, left: el.x, width: el.w, height: el.h,
-                                                transform: `rotate(${el.rotation || 0}deg)`
-                                            }}>
-                                                {el.type === 'text' ? (
-                                                    <View style={{ textAlign: el.align }}>
-                                                        {el.url ? (
-                                                            <PdfLink src={el.url} style={{ textDecoration: 'none' }}>
-                                                                <Text style={{
-                                                                    fontSize: el.fontSize, fontWeight: el.bold ? 'bold' : 'normal',
-                                                                    fontStyle: el.italic ? 'italic' : 'normal',
-                                                                    textDecoration: el.underline ? 'underline' : 'none',
-                                                                    color: el.color, backgroundColor: el.bgColor,
-                                                                    lineHeight: el.lineHeight, fontFamily: el.fontFamily
-                                                                }}>{el.content}</Text>
-                                                            </PdfLink>
-                                                        ) : (
+                                    {pages.map((pageEls, index) => (
+                                        <Page key={index} size="A4" style={{ padding: 0 }}>
+                                            {pageEls.map(el => (
+                                                <View key={el.id} style={{
+                                                    position: 'absolute',
+                                                    // Subtract the offset so it sits correctly on the individual page
+                                                    top: el.y - (index * PAGE_HEIGHT),
+                                                    left: el.x,
+                                                    width: el.w,
+                                                    height: el.h
+                                                }}>
+                                                    {el.type === 'text' ? (
+                                                        <View style={{ textAlign: el.align, backgroundColor: el.bgColor }}>
                                                             <Text style={{
                                                                 fontSize: el.fontSize, fontWeight: el.bold ? 'bold' : 'normal',
                                                                 fontStyle: el.italic ? 'italic' : 'normal',
                                                                 textDecoration: el.underline ? 'underline' : 'none',
-                                                                color: el.color, backgroundColor: el.bgColor,
-                                                                lineHeight: el.lineHeight, fontFamily: el.fontFamily
+                                                                color: el.color, lineHeight: el.lineHeight, fontFamily: el.fontFamily
                                                             }}>{el.content}</Text>
-                                                        )}
-                                                    </View>
-                                                ) : (
-                                                    el.src && <PdfImage src={el.src} style={{ width: '100%', height: '100%' }} />
-                                                )}
-                                            </View>
-                                        ))}
-                                    </Page>
+                                                        </View>
+                                                    ) : (
+                                                        el.src && <PdfImage src={el.src} style={{ width: '100%', height: '100%' }} />
+                                                    )}
+                                                </View>
+                                            ))}
+                                        </Page>
+                                    ))}
                                 </Document>
                             }
                             fileName="design.pdf"
                         >
                             {({ loading }) => (
                                 <Button fullWidth variant="contained" color="primary" startIcon={<DownloadIcon />} disabled={loading}>
-                                    {loading ? 'Generating...' : 'Export PDF'}
+                                    {loading ? 'Processing...' : 'Export PDF'}
                                 </Button>
                             )}
                         </PDFDownloadLink>
                     </Stack>
                 </Box>
 
-                {/* PROPERTIES SECTION */}
                 <Box sx={{ p: 3, flex: 1, overflowY: 'auto' }}>
-                    <Typography variant="h6" sx={{ mb: 2, fontWeight: 700 }}>Properties</Typography>
+                    <Typography variant="overline" sx={{ fontWeight: 700, color: 'text.secondary' }}>Properties</Typography>
                     {selectedElement ? (
-                        <Stack spacing={2.5}>
+                        <Stack spacing={3} sx={{ mt: 2 }}>
                             {selectedElement.type === 'text' ? (
                                 <>
                                     <FormControl fullWidth size="small">
-                                        <InputLabel>Font</InputLabel>
-                                        <Select value={selectedElement.fontFamily} label="Font" onChange={(e) => updateElement(selectedId, { fontFamily: e.target.value })}>
+                                        <InputLabel>Font Family</InputLabel>
+                                        <Select value={selectedElement.fontFamily} label="Font Family" onChange={(e) => updateElement(selectedId, { fontFamily: e.target.value })}>
                                             <MenuItem value="Helvetica">Helvetica</MenuItem>
                                             <MenuItem value="Times-Roman">Times New Roman</MenuItem>
                                             <MenuItem value="Courier">Courier</MenuItem>
                                         </Select>
                                     </FormControl>
-                                    <Stack direction="row" spacing={1}>
+
+                                    <Stack direction="row" spacing={1} justifyContent="space-between">
                                         <ToggleButtonGroup size="small" value={[selectedElement.bold && 'bold', selectedElement.italic && 'italic'].filter(Boolean)}>
                                             <ToggleButton value="bold" onClick={() => updateElement(selectedId, { bold: !selectedElement.bold })}><FormatBold /></ToggleButton>
                                             <ToggleButton value="italic" onClick={() => updateElement(selectedId, { italic: !selectedElement.italic })}><FormatItalic /></ToggleButton>
@@ -227,55 +332,50 @@ export const PdfGenerate = () => {
                                             <ToggleButton value="right"><FormatAlignRight /></ToggleButton>
                                         </ToggleButtonGroup>
                                     </Stack>
+
                                     <Stack direction="row" spacing={2}>
-                                        <TextField label="Size" type="number" size="small" value={selectedElement.fontSize} onChange={(e) => updateElement(selectedId, { fontSize: parseInt(e.target.value) })} />
-                                        <TextField label="Space" type="number" size="small" inputProps={{ step: 0.1 }} value={selectedElement.lineHeight} onChange={(e) => updateElement(selectedId, { lineHeight: parseFloat(e.target.value) })} />
+                                        <TextField label="Size" type="number" size="small" value={selectedElement.fontSize} onChange={(e) => updateElement(selectedId, { fontSize: parseInt(e.target.value) || 12 })} />
+                                        <TextField label="Line Height" type="number" size="small" inputProps={{ step: 0.1 }} value={selectedElement.lineHeight} onChange={(e) => updateElement(selectedId, { lineHeight: parseFloat(e.target.value) || 1.2 })} />
                                     </Stack>
+
                                     <Box>
-                                        <Typography variant="caption" sx={{ display: 'block', mb: 1, fontWeight: 600, color: 'text.secondary' }}>
-                                            Color & Highlight
+                                        <Typography variant="caption" sx={{ display: 'block', mb: 1.5, fontWeight: 600, color: 'text.secondary' }}>
+                                            Colors (Text / Highlight)
                                         </Typography>
                                         <Stack direction="row" spacing={2}>
-                                            <Tooltip title="Text Color" arrow>
-                                                <input
-                                                    type="color"
-                                                    value={selectedElement.color}
-                                                    onChange={(e) => updateElement(selectedId, { color: e.target.value })}
-                                                    style={{
-                                                        width: 30, height: 35, border: '1px solid #e2e8f0',
-                                                        borderRadius: '6px', cursor: 'pointer', padding: 0,
-                                                        backgroundColor: 'white'
-                                                    }}
-                                                />
-                                            </Tooltip>
-                                            <Tooltip title="Background Color" arrow>
-                                                <input
-                                                    type="color"
-                                                    value={selectedElement.bgColor === 'transparent' ? '#ffffff' : selectedElement.bgColor}
-                                                    onChange={(e) => updateElement(selectedId, { bgColor: e.target.value })}
-                                                    style={{
-                                                        width: 30, height: 35, border: '1px solid #e2e8f0',
-                                                        borderRadius: '6px', cursor: 'pointer', padding: 0,
-                                                        backgroundColor: 'white'
-                                                    }}
-                                                />
-                                            </Tooltip>
+                                            <input
+                                                type="color"
+                                                value={selectedElement.color}
+                                                onChange={(e) => updateElement(selectedId, { color: e.target.value })}
+                                                style={{ width: 30, height: 31, border: `1px solid ${theme.palette.divider}`, borderRadius: '4px', cursor: 'pointer', background: 'none' }}
+                                            />
+                                            <input
+                                                type="color"
+                                                value={selectedElement.bgColor === 'transparent' ? '#ffffff' : selectedElement.bgColor}
+                                                onChange={(e) => updateElement(selectedId, { bgColor: e.target.value })}
+                                                style={{ width: 30, height: 31, border: `1px solid ${theme.palette.divider}`, borderRadius: '4px', cursor: 'pointer', background: 'none' }}
+                                            />
                                         </Stack>
                                     </Box>
                                 </>
                             ) : (
-                                <Stack spacing={1}>
-                                    <Button variant="outlined" onClick={() => updateElement(selectedId, { flipX: !selectedElement.flipX })}>Flip Horizontal</Button>
-                                    <Button variant="outlined" onClick={() => updateElement(selectedId, { rotation: (selectedElement.rotation + 90) % 360 })}>Rotate 90°</Button>
+                                <Stack spacing={1.5}>
+                                    <Button fullWidth variant="outlined" onClick={() => updateElement(selectedId, { flipX: !selectedElement.flipX })}>Flip Horizontal</Button>
+                                    <Button fullWidth variant="outlined" onClick={() => updateElement(selectedId, { rotation: (selectedElement.rotation + 90) % 360 })}>Rotate 90°</Button>
                                 </Stack>
                             )}
-                            <Divider />
-                            <Button fullWidth variant="outlined" color="error" startIcon={<DeleteIcon />} onClick={() => deleteElement(selectedId)}>Delete</Button>
+                            <Divider sx={{ my: 1 }} />
+                            <Button fullWidth variant="contained" color="error" startIcon={<DeleteIcon />} onClick={() => deleteElement(selectedId)} sx={{ opacity: 0.8, '&:hover': { opacity: 1 } }}>
+                                Remove Element
+                            </Button>
                         </Stack>
                     ) : (
-                        <Typography variant="body2" color="textSecondary" sx={{ textAlign: 'center', mt: 4 }}>
-                            Select an item to edit
-                        </Typography>
+                        <Box sx={{ mt: 8, textAlign: 'center', px: 2 }}>
+                            <DragIcon sx={{ fontSize: 40, color: 'divider', mb: 1 }} />
+                            <Typography variant="body2" color="text.secondary">
+                                Select an element on the canvas to customize its properties.
+                            </Typography>
+                        </Box>
                     )}
                 </Box>
             </Paper>

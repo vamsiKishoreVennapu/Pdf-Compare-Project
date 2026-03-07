@@ -1,5 +1,5 @@
 import { useState } from 'react';
-// import { Header } from '../components/Layout/Header';
+import { jsPDF } from "jspdf";
 import {
   Box, Card, CardContent, Typography, Button, Divider, Paper,
   LinearProgress, Stack, IconButton, Modal, Backdrop, Fade, Grid, Tabs, Tab
@@ -12,7 +12,7 @@ import {
   ZoomIn as ZoomInIcon,
   Close as CloseIcon
 } from '@mui/icons-material';
-import pixelmatch from 'pixelmatch';
+// import pixelmatch from 'pixelmatch';
 import * as pdfjsLib from 'pdfjs-dist';
 import { diffWordsWithSpace } from 'diff';
 
@@ -29,7 +29,7 @@ export const PdfCompare = () => {
   const [currentPage, setCurrentPage] = useState(0);
   const [zoomImg, setZoomImg] = useState(null);
   const [tabValue, setTabValue] = useState(1); // Default to Text Analysis
-
+  const [viewMode, setViewMode] = useState('both');
   const handleTabChange = (event, newValue) => {
     setTabValue(newValue);
   };
@@ -46,16 +46,40 @@ export const PdfCompare = () => {
     inputs.forEach(input => (input.value = ""));
   };
 
-  const handleEdit = () => {
-    setFiles({ left: null, right: null });
-    setDiffData([]);
-    setExtractedData({ left: [], right: [] });
-    setDiffResult(null);
-    setDocSummary(null);
-    setCurrentPage(0);
-    setTabValue(1);
-    const inputs = document.querySelectorAll('input[type="file"]');
-    inputs.forEach(input => (input.value = ""));
+  const handleExport = () => {
+    if (!diffData || diffData.length === 0) {
+      alert("No diff data available. Please run the comparison first.");
+      return;
+    }
+
+    // 1. Initialize PDF
+    const pdf = new jsPDF({
+      orientation: 'portrait',
+      unit: 'px',
+      format: 'a4'
+    });
+
+    const pdfWidth = pdf.internal.pageSize.getWidth();
+    const pdfHeight = pdf.internal.pageSize.getHeight();
+
+    // 2. Loop through all analyzed pages
+    diffData.forEach((pageData, index) => {
+      // Select the image based on the user's current view mode (Both, Added, or Removed)
+      const imgToExport = viewMode === 'removed' ? pageData.diffRemoved :
+        viewMode === 'added' ? pageData.diffAdded :
+          pageData.diff;
+
+      // 3. Add the image to the current page
+      pdf.addImage(imgToExport, 'PNG', 0, 0, pdfWidth, pdfHeight);
+
+      // 4. If there's another page coming, add a new blank page to the PDF
+      if (index < diffData.length - 1) {
+        pdf.addPage();
+      }
+    });
+
+    // 5. Save the complete document
+    pdf.save("full-document-diff.pdf");
   };
 
   const extractTextPages = async (file) => {
@@ -126,13 +150,14 @@ export const PdfCompare = () => {
     });
   };
 
+
   const handleFullComparison = async () => {
     setIsComparing(true);
     setDiffData([]);
     setDiffResult(null);
 
     try {
-      // 1. New Text Comparison Logic
+      // 1. Text Comparison Logic (Remains the same)
       const leftPages = await extractTextPages(files.left);
       const rightPages = await extractTextPages(files.right);
       setExtractedData({ left: leftPages, right: rightPages });
@@ -150,20 +175,86 @@ export const PdfCompare = () => {
       for (let i = 1; i <= pageCount; i++) {
         const img1 = await getPageImageData(pdf1, i);
         const img2 = await getPageImageData(pdf2, i);
-        const diffCanvas = document.createElement('canvas');
-        diffCanvas.width = img1.width;
-        diffCanvas.height = img1.height;
-        const diffCtx = diffCanvas.getContext('2d');
-        const diffImageData = diffCtx.createImageData(img1.width, img1.height);
 
-        pixelmatch(
-          img1.imageData.data, img2.imageData.data, diffImageData.data,
-          img1.width, img1.height, { threshold: 0.1 }
-        );
+        // Setup Canvases
+        const canvas = document.createElement('canvas');
+        canvas.width = img1.width;
+        canvas.height = img1.height;
+        const ctx = canvas.getContext('2d');
 
-        diffCtx.putImageData(diffImageData, 0, 0);
-        visualResults.push({ original: img1.url, revised: img2.url, diff: diffCanvas.toDataURL() });
+        const img1Data = img1.imageData.data;
+        const img2Data = img2.imageData.data;
+
+        const generateLayer = (mode) => {
+          const diffImageData = ctx.createImageData(img1.width, img1.height);
+          const data = diffImageData.data;
+
+          // good one final
+          for (let j = 0; j < img1Data.length; j += 4) {
+            const r1 = img1Data[j], g1 = img1Data[j + 1], b1 = img1Data[j + 2];
+            const r2 = img2Data[j], g2 = img2Data[j + 1], b2 = img2Data[j + 2];
+
+            const v1 = (r1 + g1 + b1) / 3;
+            const v2 = (r2 + g2 + b2) / 3;
+
+            const isInk1 = v1 < 220;
+            const isInk2 = v2 < 220;
+
+            // Tolerance of 80 to keep things clean and non-muddy
+            const isIdentical = isInk1 && isInk2 && Math.abs(v1 - v2) < 80;
+
+            const removed = isInk1 && !isInk2;
+            const added = !isInk1 && isInk2;
+            const overlapConflict = isInk1 && isInk2 && !isIdentical;
+
+            if (isIdentical) {
+              // 1. DIMMED ORIGINAL: Shift toward white by 60%
+              data[j] = r1 + (255 - r1) * 0.6;
+              data[j + 1] = g1 + (255 - g1) * 0.6;
+              data[j + 2] = b1 + (255 - b1) * 0.6;
+              data[j + 3] = 255;
+            } else if (overlapConflict && mode === 'both') {
+              // 1. OVERLAP: Soft Mauve (Solid)
+              // data[j] = 200; data[j + 1] = 160; data[j + 2] = 200; data[j + 3] = 255;
+
+              // data[j] = 0;
+              // data[j + 1] = 0;
+              // data[j + 2] = 0;
+              // data[j + 3] = 0;
+
+              // goog combine color ie; same as common text only one which is compatible
+              data[j] = r1 + (255 - r1) * 0.6;
+              data[j + 1] = g1 + (255 - g1) * 0.6;
+              data[j + 2] = b1 + (255 - b1) * 0.6;
+              data[j + 3] = 255;
+            } else if (removed && (mode === 'both' || mode === 'removed')) {
+              // 2. PLAIN LIGHT PINK: (255, 182, 255)
+              data[j] = 255; data[j + 1] = 182; data[j + 2] = 255; data[j + 3] = 255;
+            } else if (added && (mode === 'both' || mode === 'added')) {
+              // 3. PLAIN LIGHT GREEN: (144, 238, 138)
+              data[j] = 144; data[j + 1] = 238; data[j + 2] = 138; data[j + 3] = 255;
+            }
+
+            else {
+              // WHITE PAPER
+              data[j] = 255; data[j + 1] = 255; data[j + 2] = 255; data[j + 3] = 255;
+            }
+          }
+
+          ctx.putImageData(diffImageData, 0, 0);
+          // return canvas.toDataURL();
+          return canvas.toDataURL('image/png');
+        };
+
+        visualResults.push({
+          original: img1.url,
+          revised: img2.url,
+          diff: generateLayer('both'),      // X and Y mixed
+          diffRemoved: generateLayer('removed'), // Only X (Red)
+          diffAdded: generateLayer('added')     // Only Y (Green)
+        });
       }
+
       setDiffData(visualResults);
       setCurrentPage(0);
 
@@ -194,7 +285,7 @@ export const PdfCompare = () => {
   return (
     <Box sx={{ p: 0 }}>
       {/* <Header /> */}
-      <Card variant="outlined" sx={{ mb: 4, borderRadius: 2, boxShadow: 1, mt: 4 }}>
+      <Card variant="outlined" sx={{ mb: 4, borderRadius: 2, boxShadow: 1, mt: 0 }}>
         <CardContent>
           <Stack direction={{ xs: 'column', sm: 'row' }} spacing={3} justifyContent="center" alignItems="center">
             <UploadButton label={files.left?.name || "Original PDF"} onUpload={(e) => handleFileUpload(e, 'left')} color={files.left ? "success" : "primary"} />
@@ -205,8 +296,8 @@ export const PdfCompare = () => {
             </Button>
             {(files.left || files.right) && (
               <>
-                <Button variant="outlined" color="blue" onClick={handleEdit} sx={{ height: 40 }}>Edit</Button>
                 <Button variant="outlined" color="error" onClick={handleReset} sx={{ height: 40 }}>Reset</Button>
+                <Button variant="outlined" color="blue" onClick={handleExport} sx={{ height: 40 }}>Export</Button>
               </>)}
           </Stack>
         </CardContent>
@@ -214,12 +305,74 @@ export const PdfCompare = () => {
       </Card>
 
       {/* Tabs appear only when results exist */}
-      {docSummary && (
+      {/* {docSummary && (
         <Tabs value={tabValue} onChange={handleTabChange} centered sx={{ borderBottom: 1, borderColor: 'divider', mb: 3 }}>
           <Tab label="Text Analysis" value={1} />
           <Tab label="Visual Comparison" value={0} />
         </Tabs>
+      )} */}
+
+      {docSummary && (
+        <Box sx={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center', // Centers the Tabs
+          position: 'relative',
+          borderBottom: 1,
+          borderColor: 'divider',
+          mb: 3,
+          px: 2
+        }}>
+          {/* 1. THE TABS (Centered) */}
+          <Tabs
+            value={tabValue}
+            onChange={handleTabChange}
+            sx={{ minHeight: 48 }}
+          >
+            <Tab label="Text Analysis" value={1} />
+            <Tab label="Visual Comparison" value={0} />
+          </Tabs>
+
+          {/* 2. THE TOGGLE BUTTONS (Positioned to the right) */}
+          <Stack
+            direction="row"
+            spacing={1}
+            sx={{
+              position: 'absolute',
+              right: 65,
+              display: tabValue === 0 ? 'flex' : 'none' // Only show when Visual Comparison is active
+            }}
+          >
+            <Button
+              variant={viewMode === 'both' ? 'contained' : 'outlined'}
+              onClick={() => setViewMode('both')}
+              size="small"
+              sx={{ height: 30, textTransform: 'none' }}
+            >
+              Both
+            </Button>
+            <Button
+              variant={viewMode === 'removed' ? 'contained' : 'outlined'}
+              color="error"
+              onClick={() => setViewMode('removed')}
+              size="small"
+              sx={{ height: 30, textTransform: 'none' }}
+            >
+              Removed
+            </Button>
+            <Button
+              variant={viewMode === 'added' ? 'contained' : 'outlined'}
+              color="success"
+              onClick={() => setViewMode('added')}
+              size="small"
+              sx={{ height: 30, textTransform: 'none' }}
+            >
+              Added
+            </Button>
+          </Stack>
+        </Box>
       )}
+
       <Grid container spacing={2}>
         <Grid size={{ xs: 12, md: 3 }}  >
 
@@ -321,10 +474,56 @@ export const PdfCompare = () => {
                     <Typography variant="caption" sx={{ fontWeight: 'bold', color: pane.color }}>{pane.label}</Typography>
                   </Box>
                   <Box sx={{ position: 'relative', p: 1 }}>
-                    <IconButton size="small" onClick={() => setZoomImg(pane.img)} sx={{ position: 'absolute', right: 8, top: 8, bgcolor: 'rgba(255,255,255,0.8)', zIndex: 2 }}>
+                    {/* <IconButton size="small" onClick={() => setZoomImg(pane.img)} sx={{ position: 'absolute', right: 8, top: 8, bgcolor: 'rgba(255,255,255,0.8)', zIndex: 2 }}>
+                      <ZoomInIcon fontSize="small" />
+                    </IconButton> */}
+
+                    <IconButton
+                      size="small"
+                      onClick={() => {
+                        // Logic: If it's the diff pane, use the filtered view. Otherwise, use the original/revised image.
+                        const activeZoomImg = pane.isDiff
+                          ? (viewMode === 'removed' ? diffData[currentPage].diffRemoved :
+                            viewMode === 'added' ? diffData[currentPage].diffAdded :
+                              diffData[currentPage].diff)
+                          : pane.img;
+
+                        setZoomImg(activeZoomImg);
+                      }}
+                      sx={{
+                        position: 'absolute',
+                        right: 8,
+                        top: 8,
+                        bgcolor: 'rgba(255,255,255,0.8)',
+                        zIndex: 2,
+                        '&:hover': { bgcolor: 'rgba(255,255,255,1)' }
+                      }}
+                    >
                       <ZoomInIcon fontSize="small" />
                     </IconButton>
-                    <img src={pane.img} alt={pane.label} style={{ width: '100%', height: 'auto', display: 'block' }} />
+
+
+
+                    {/* <img src={pane.img} alt={pane.label} style={{ width: '100%', height: 'auto', display: 'block' }} /> */}
+                    {/* <img
+                      src={
+                        viewMode === 'removed' ? diffData[currentPage].diffRemoved :
+                          viewMode === 'added' ? diffData[currentPage].diffAdded :
+                            diffData[currentPage].diff
+                      }
+                      alt={pane.label} style={{ width: '100%', height: 'auto', display: 'block' }}
+                    /> */}
+                    <img
+                      src={
+                        pane.isDiff
+                          ? (viewMode === 'removed' ? diffData[currentPage].diffRemoved :
+                            viewMode === 'added' ? diffData[currentPage].diffAdded :
+                              diffData[currentPage].diff)
+                          : pane.img // This ensures Original and Revised stay "as is"
+                      }
+                      alt={pane.label}
+                      style={{ width: '100%', height: 'auto', display: 'block' }}
+                    />
                   </Box>
                 </Card>
               </Grid>
@@ -347,7 +546,22 @@ export const PdfCompare = () => {
         <Fade in={!!zoomImg}>
           <Box sx={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', width: '95vw', maxHeight: '95vh', bgcolor: 'background.paper', p: 2, borderRadius: 2, overflow: 'auto' }}>
             <IconButton onClick={() => setZoomImg(null)} sx={{ position: 'fixed', right: 24, top: 24, zIndex: 10, bgcolor: 'rgba(255,255,255,0.9)' }}><CloseIcon /></IconButton>
-            <img src={zoomImg} alt="Zoomed View" style={{ width: '100%', height: 'auto' }} />
+            {/* <img src={zoomImg} alt="Zoomed View" style={{ width: '100%', height: 'auto' }} /> */}
+            <img
+              src={
+                // Check if the current zoomImg matches one of the diff types
+                // if so, dynamically return the one matching the current viewMode
+                (zoomImg === diffData[currentPage]?.diff ||
+                  zoomImg === diffData[currentPage]?.diffAdded ||
+                  zoomImg === diffData[currentPage]?.diffRemoved)
+                  ? (viewMode === 'removed' ? diffData[currentPage].diffRemoved :
+                    viewMode === 'added' ? diffData[currentPage].diffAdded :
+                      diffData[currentPage].diff)
+                  : zoomImg
+              }
+              alt="Zoomed View"
+              style={{ width: '100%', height: 'auto' }}
+            />
           </Box>
         </Fade>
       </Modal>
