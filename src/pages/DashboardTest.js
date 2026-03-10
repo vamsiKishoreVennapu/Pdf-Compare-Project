@@ -1,39 +1,40 @@
 // import { Helmet } from 'react-helmet';
-import React, {
-  useState, useEffect,
-  // lazy, Suspense
-} from 'react';
+// import React, {
+//   // useState, 
+//   // useEffect,
+//   // lazy, Suspense
+// } from 'react';
 import {
   Box,
   Grid,
-  Card,
-  CardContent,
+  // Card,
+  // CardContent,
   Typography,
-  Button,
+  // Button,
   // IconButton,
   // LinearProgress,
-  Chip,
-  List,
-  ListItem,
-  ListItemText,
-  ListItemAvatar,
-  Avatar,
-  Divider,
+  // Chip,
+  // List,
+  // ListItem,
+  // ListItemText,
+  // ListItemAvatar,
+  // Avatar,
+  // Divider,
   Container
 } from '@mui/material';
-import {
-  TrendingUp,
-  TrendingDown,
-  // Image,
-  PlayArrow,
-  Pause,
-  Coffee,
-  CheckCircle,
-  Schedule,
-  Warning,
-} from '@mui/icons-material';
+// import {
+//   TrendingUp,
+//   TrendingDown,
+//   // Image,
+//   // PlayArrow,
+//   // Pause,
+//   // Coffee,
+//   // CheckCircle,
+//   // Schedule,
+//   // Warning,
+// } from '@mui/icons-material';
 // import { SEOHelmet } from '../components/SEOHelmet';
-import { DashboardSkeleton } from '../components/SkeletonLoader';
+// import { DashboardSkeleton } from '../components/SkeletonLoader';
 // import dashboardImage from 'figma:asset/ecfe26b3b7e47765daef76a3db7078ee746a8b84.png';
 
 // Lazy load chart component
@@ -44,42 +45,42 @@ import ImageImage from '../assets/ImageIcon.jpg'; // Adjust path to your assets 
 import PDFImage from '../assets/PDF_file_icon.png'; // Adjust path to your assets folder
 
 
-const StatCard = ({ title, value, change, isPositive, icon }) => (
-  <Card>
-    <CardContent>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-        <Box>
-          <Typography variant="body2" color="text.secondary" gutterBottom>
-            {title}
-          </Typography>
-          <Typography variant="h4" component="div" sx={{ my: 1 }}>
-            {value}
-          </Typography>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-            {isPositive ? (
-              <TrendingUp color="success" fontSize="small" />
-            ) : (
-              <TrendingDown color="error" fontSize="small" />
-            )}
-            <Typography
-              variant="caption"
-              color={isPositive ? 'success.main' : 'error.main'}
-            >
-              {change}
-            </Typography>
-          </Box>
-        </Box>
-        <Box sx={{ color: 'primary.main' }}>{icon}</Box>
-      </Box>
-    </CardContent>
-  </Card>
-);
+// const StatCard = ({ title, value, change, isPositive, icon }) => (
+//   <Card>
+//     <CardContent>
+//       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+//         <Box>
+//           <Typography variant="body2" color="text.secondary" gutterBottom>
+//             {title}
+//           </Typography>
+//           <Typography variant="h4" component="div" sx={{ my: 1 }}>
+//             {value}
+//           </Typography>
+//           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+//             {isPositive ? (
+//               <TrendingUp color="success" fontSize="small" />
+//             ) : (
+//               <TrendingDown color="error" fontSize="small" />
+//             )}
+//             <Typography
+//               variant="caption"
+//               color={isPositive ? 'success.main' : 'error.main'}
+//             >
+//               {change}
+//             </Typography>
+//           </Box>
+//         </Box>
+//         <Box sx={{ color: 'primary.main' }}>{icon}</Box>
+//       </Box>
+//     </CardContent>
+//   </Card>
+// );
 
-const imageStyle = { 
-  width: '100%', 
-  height: 'auto', 
-  maxWidth: 100, 
-  maxHeight: 124, 
+const imageStyle = {
+  width: '100%',
+  height: 'auto',
+  maxWidth: 100,
+  maxHeight: 124,
   borderRadius: '8px',
   display: 'block',
   margin: '0 auto'
@@ -100,45 +101,42 @@ const imageContainerStyle = {
 };
 
 export const DashboardTest = () => {
-  const [loading, setLoading] = useState(true);
-  const [isClockedIn, setIsClockedIn] = useState(false);
-  const [currentTime, setCurrentTime] = useState('04:02:40');
+  // const [loading, setLoading] = useState(false);
+  // const [isClockedIn, setIsClockedIn] = useState(false);
+  // const [currentTime, setCurrentTime] = useState('04:02:40');
 
-  useEffect(() => {
-    // Simulate data loading
-    setTimeout(() => setLoading(false), 1500);
+  // useEffect(() => {
+  //   // Simulate data loading
+  //   // setTimeout(() => setLoading(false), 1500);
 
-    // Update timer
-    const interval = setInterval(() => {
-      const now = new Date();
-      setCurrentTime(now.toLocaleTimeString('en-US', { hour12: false }));
-    }, 1000);
+  //   // // Update timer
+  //   // const interval = setInterval(() => {
+  //   //   const now = new Date();
+  //   //   setCurrentTime(now.toLocaleTimeString('en-US', { hour12: false }));
+  //   // }, 1000);
 
-    return () => clearInterval(interval);
-  }, []);
+  //   // return () => clearInterval(interval);
+  // }, []);
 
-  if (loading) {
-    return (
-      <>
-        {/* <SEOHelmet title="Dashboard" /> */}
-        <DashboardSkeleton />
-      </>
-    );
-  }
+  // // if (loading) {
+  //   return (
+  //     <DashboardSkeleton />
+  //   );
+  // }
 
-  const tasks = [
-    {
-      title: 'Making work certificate John Doe',
-      status: 'in progress',
-      date: '30/06/2023',
-      assignee: 'Elyse',
-    },
-    {
-      title: 'Call Jack Russel',
-      date: '3 June 2023 at 10:30 am',
-      status: 'scheduled',
-    },
-  ];
+  // const tasks = [
+  //   {
+  //     title: 'Making work certificate John Doe',
+  //     status: 'in progress',
+  //     date: '30/06/2023',
+  //     assignee: 'Elyse',
+  //   },
+  //   {
+  //     title: 'Call Jack Russel',
+  //     date: '3 June 2023 at 10:30 am',
+  //     status: 'scheduled',
+  //   },
+  // ];
 
   // const schedule = [
   //   { title: 'Meeting with Jeni', time: '3 June 2023 at 10:30 am', checked: true },

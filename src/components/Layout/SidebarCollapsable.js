@@ -11,12 +11,12 @@ import {
   Typography,
   Collapse,
   IconButton,
-  Tooltip,
-  Toolbar
+  // Tooltip,
+  // Toolbar
 } from '@mui/material';
 import {
   Dashboard as DashboardIcon,
-  Settings as SettingsIcon,
+  // Settings as SettingsIcon,
   ChevronLeft as ChevronLeftIcon,
   Menu as MenuIcon,
   ExpandLess,
@@ -52,7 +52,7 @@ export const SidebarCollapsable = () => {
 
   const menuItems = [
     { title: 'PDF Compare', icon: <DashboardIcon />, path: '/pdf/compare' },
-    { title: 'PDF Generate', icon: <SettingsIcon />, path: '/pdf/generate' },
+    // { title: 'PDF Generate', icon: <SettingsIcon />, path: '/pdf/generate' },
   ];
 
   const filteredMenuItems = menuItems.filter(

@@ -320,16 +320,13 @@ export const PdfCompare = () => {
             const removed = isInk1 && !isInk2;
             const added = !isInk1 && isInk2;
 
-            // rgb(0,204,204)
-            // rgb(204,0,0)
+            // rgb(0,204,204)  rgb(204,0,0)
 
             const myGreen = { r: 0, g: 204, b: 204 };
-
             const myRed = { r: 204, g: 0, b: 0 };
 
             // Custom Palette
             // const myGreen = { r: 0, g: 207, b: 187 };
-
             // const myRed = { r: 234, g: 159, b: 159 };
 
             // Function to apply the "Dimming" effect consistently
@@ -342,13 +339,10 @@ export const PdfCompare = () => {
 
             if (isTrueCommon) {
               // applyDimming();
-
-
               data[j] = r1
               data[j + 1] = g1
               data[j + 2] = b1
               data[j + 3] = 255;
-
             }
             else if (mode === 'added') {
               if (added || overlapConflict) {
@@ -437,7 +431,7 @@ export const PdfCompare = () => {
             {(files.left || files.right) && (
               <>
                 <Button variant="outlined" color="error" onClick={handleReset} sx={{ height: 40 }}>Reset</Button>
-                {/* <Button variant="outlined" color="blue" onClick={handleExport} sx={{ height: 40 }}>Export</Button> */}
+                <Button variant="outlined" color="blue" onClick={handleExport} sx={{ height: 40 }}>Export</Button>
               </>)}
           </Stack>
         </CardContent>
