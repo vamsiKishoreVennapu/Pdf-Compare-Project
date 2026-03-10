@@ -168,7 +168,7 @@ export const PdfCompare = () => {
       const rightBuffer = await files.right.arrayBuffer();
       const pdf1 = await pdfjsLib.getDocument({ data: leftBuffer }).promise;
       const pdf2 = await pdfjsLib.getDocument({ data: rightBuffer }).promise;
-      const pageCount = Math.min(pdf1.numPages, pdf2.numPages, 6);
+      const pageCount = Math.min(pdf1.numPages, pdf2.numPages);
       const visualResults = [];
 
       for (let i = 1; i <= pageCount; i++) {
