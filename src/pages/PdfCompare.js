@@ -558,7 +558,8 @@ export const PdfCompare = () => {
                         bgcolor: part.removed ? '#ffebee' : 'transparent',
                         textDecoration: part.removed ? 'line-through' : 'none',
                         color: part.removed ? '#c62828' : 'inherit',
-                        display: 'inline'
+                        display: 'inline',
+                        fontWeight: part.removed ? 700 : 400,
                       }}>
                         {part.value}
                       </Box>
@@ -571,8 +572,11 @@ export const PdfCompare = () => {
                     {diffResult.fullDiff.map((part, i) => !part.removed && (
                       <Box component="span" key={i} sx={{
                         bgcolor: part.added ? '#e8f5e9' : 'transparent',
-                        color: part.added ? '#2e7d32' : 'inherit',
-                        display: 'inline'
+                        // color: part.added ? '#2e7d32' : 'inherit',
+                        // bgcolor: part.added ? '#97d89d' : 'transparent',
+                        color: part.added ? '#0000a8' : 'inherit',
+                        display: 'inline',
+                        fontWeight: part.added ? 700 : 400,
                       }}>
                         {part.value}
                       </Box>
